@@ -68,13 +68,13 @@ public class DownloadManager
         // Set the initial download progress to 0%
         _headers.Add("X-Download-Progress", "0");
 
-        // Use a buffer to write the data to the response stream in chunks
-        var buffer = new char[4096];
+        // Use a buffer to read the data from the database and write it to the response stream in chunks
+        var buffer = new byte[4096];
         var bytesRead = 0;
         var totalBytesRead = 0;
-        while ((bytesRead = await _reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        while ((bytesRead = await _reader.GetBytesAsync(1, totalBytesRead, buffer, 0, buffer.Length)) > 0)
         {
-            await _writer.WriteAsync(buffer, 0, bytesRead);
+            await _writer.BaseStream.WriteAsync(buffer, 0, bytesRead);
 
             totalBytesRead += bytesRead;
 
