@@ -72,7 +72,7 @@ public class DownloadManager
         var buffer = new byte[4096];
         var bytesRead = 0;
         var totalBytesRead = 0;
-        while ((bytesRead = await _reader.GetBytesAsync(1, totalBytesRead, buffer, 0, buffer.Length)) > 0)
+        while ((bytesRead = (int)_reader.GetOracleValue(1, totalBytesRead, buffer, 0, buffer.Length)) > 0)
         {
             await _writer.BaseStream.WriteAsync(buffer, 0, bytesRead);
 
