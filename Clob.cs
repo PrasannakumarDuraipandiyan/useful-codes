@@ -37,6 +37,75 @@ public class OracleClobController : ControllerBase
                                 // Stream the CLOB data as a file
                                 using (Stream outputStream = Response.Body)
                                 {
+                                    using (StreamReader clobReader = new StreamReader(clobData, true))
+                                    {
+                                        char[] buffer = new char[1024]; // You can adjust the buffer size as needed
+                                        int bytesRead;
+                                        while ((bytesRead = clobReader.Read(buffer, 0, buffer.Length)) > 0)
+                                        {
+                                            char[] data = new char[bytesRead];
+                                            Array.Copy(buffer, data, bytesRead);
+                                            outputStream.Write(System.Text.Encoding.UTF8.GetBytes(data), 0, bytesRead);
+                                        }
+                                    }
+                                }
+
+                                return new EmptyResult();
+                            }
+                        }
+                    }
+                }
+            }
+
+            return NotFound(); // CLOB data not found or empty
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error: {ex.Message}");
+        }
+    }
+}
+
+
+using System;
+using System.Data;
+using Microsoft.AspNetCore.Mvc;
+using Oracle.ManagedDataAccess.Client;
+using System.IO;
+
+[ApiController]
+[Route("api/[controller]")]
+public class OracleClobController : ControllerBase
+{
+    private readonly string connectionString = "YOUR_ORACLE_CONNECTION_STRING";
+    private readonly string selectQuery = "SELECT your_clob_column FROM your_table WHERE your_condition";
+
+    [HttpGet]
+    public IActionResult GetClobAsStream()
+    {
+        try
+        {
+            using (OracleConnection connection = new OracleConnection(connectionString))
+            {
+                connection.Open();
+                using (OracleCommand command = new OracleCommand(selectQuery, connection))
+                {
+                    using (OracleDataReader reader = command.ExecuteReader(CommandBehavior.SequentialAccess))
+                    {
+                        if (reader.Read())
+                        {
+                            if (!reader.IsDBNull(0))
+                            {
+                                // Assuming the CLOB column is the first column (index 0)
+                                OracleClob clobData = reader.GetOracleClob(0);
+
+                                // Set the HTTP response headers
+                                Response.ContentType = "application/octet-stream";
+                                Response.Headers.Add("Content-Disposition", "attachment; filename=\"clob_data.txt\"");
+
+                                // Stream the CLOB data as a file
+                                using (Stream outputStream = Response.Body)
+                                {
                                     byte[] buffer = new byte[1024]; // You can adjust the buffer size as needed
                                     long bytesRead;
                                     long offset = 0;
