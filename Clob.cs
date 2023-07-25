@@ -1,5 +1,76 @@
 using System;
 using System.Data;
+using System.Data.Common;
+using Oracle.ManagedDataAccess.Client;
+using System.IO;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+var connectionString = builder.Configuration.GetConnectionString("OracleConnection");
+
+var app = builder.Build();
+
+app.MapGet("/api/csv", async (DbConnection connection) =>
+{
+    var query = "SELECT csv_data FROM your_table WHERE some_condition = :param";
+
+    // Replace ":param" with an appropriate parameter value to retrieve the correct data.
+
+    await connection.OpenAsync();
+
+    using var command = connection.CreateCommand();
+    command.CommandText = query;
+
+    using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+
+    if (await reader.ReadAsync())
+    {
+        if (!reader.IsDBNull(0))
+        {
+            var stream = reader.GetStream(0);
+            return StreamCsvData(stream, "data.csv");
+        }
+    }
+
+    return Results.NotFound();
+});
+
+app.Services.AddScoped(serviceProvider =>
+{
+    var connection = new OracleConnection(connectionString);
+    return connection;
+});
+
+app.Run();
+
+private IActionResult StreamCsvData(Stream stream, string fileName)
+{
+    var response = new FileCallbackResult("text/csv", async (responseStream, _) =>
+    {
+        try
+        {
+            await stream.CopyToAsync(responseStream);
+        }
+        catch (Exception ex)
+        {
+            // Log the error or handle it accordingly.
+        }
+        finally
+        {
+            stream.Close();
+        }
+    });
+
+    response.FileDownloadName = fileName;
+    return response;
+}
+
+
+using System;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using Oracle.ManagedDataAccess.Client;
 using System.IO;
