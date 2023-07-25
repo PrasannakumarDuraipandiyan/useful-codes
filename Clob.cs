@@ -30,6 +30,90 @@ app.MapGet("/api/csv", async (DbConnection connection) =>
     {
         if (!reader.IsDBNull(0))
         {
+            var blob = new byte[reader.GetBytes(0, 0, null, 0, int.MaxValue)];
+            reader.GetBytes(0, 0, blob, 0, blob.Length);
+
+            var stream = new MemoryStream(blob);
+            return new StreamCsvResult(stream, "data.csv");
+        }
+    }
+
+    return Results.NotFound();
+});
+
+app.Services.AddScoped(serviceProvider =>
+{
+    var connection = new OracleConnection(connectionString);
+    return connection;
+});
+
+app.Run();
+
+public class StreamCsvResult : IActionResult
+{
+    private readonly Stream _stream;
+    private readonly string _fileName;
+
+    public StreamCsvResult(Stream stream, string fileName)
+    {
+        _stream = stream;
+        _fileName = fileName;
+    }
+
+    public async Task ExecuteResultAsync(ActionContext context)
+    {
+        var response = context.HttpContext.Response;
+        response.ContentType = "text/csv";
+        response.Headers.Add("Content-Disposition", $"attachment; filename={_fileName}");
+
+        try
+        {
+            await _stream.CopyToAsync(response.Body);
+        }
+        catch (Exception ex)
+        {
+            // Log the error or handle it accordingly.
+        }
+        finally
+        {
+            _stream.Close();
+        }
+    }
+}
+
+
+using System;
+using System.Data;
+using System.Data.Common;
+using Oracle.ManagedDataAccess.Client;
+using System.IO;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+var connectionString = builder.Configuration.GetConnectionString("OracleConnection");
+
+var app = builder.Build();
+
+app.MapGet("/api/csv", async (DbConnection connection) =>
+{
+    var query = "SELECT csv_data FROM your_table WHERE some_condition = :param";
+
+    // Replace ":param" with an appropriate parameter value to retrieve the correct data.
+
+    await connection.OpenAsync();
+
+    using var command = connection.CreateCommand();
+    command.CommandText = query;
+
+    using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess);
+
+    if (await reader.ReadAsync())
+    {
+        if (!reader.IsDBNull(0))
+        {
             var stream = reader.GetStream(0);
             return new StreamCsvResult(stream, "data.csv");
         }
