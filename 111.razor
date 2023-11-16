@@ -1,0 +1,16 @@
+@inject NavigationManager NavManager
+
+@code {
+  private string returnUrl;
+  protected override void OnInitialized ()
+  {
+    // Get the current URL
+    string currentUrl = NavManager.Uri;
+    // Get the current query string as a NameValueCollection
+    var query = QueryHelpers.ParseQuery (currentUrl);
+    // Add or update the return URL parameter
+    query ["returnUrl"] = NavManager.ToBaseRelativePath (currentUrl);
+    // Set the modified query string to the returnUrl variable
+    returnUrl = QueryHelpers.AddQueryString (currentUrl, query);
+  }
+}
