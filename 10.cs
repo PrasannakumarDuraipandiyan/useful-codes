@@ -31,13 +31,29 @@ public class FileController : Controller
             return NotFound();
         }
 
+        // Create a memory stream for the response
         var memoryStream = new MemoryStream();
-        await using (var clobStream = oracleClob.GetStream())
+        await using (var writer = new StreamWriter(memoryStream, Encoding.UTF8, leaveOpen: true))
         {
-            await clobStream.CopyToAsync(memoryStream);
+            char[] buffer = new char[8192];
+            long position = 0;
+            long length = oracleClob.Length;
+            while (position < length)
+            {
+                int charsRead = oracleClob.Read(buffer, 0, buffer.Length, position);
+                if (charsRead > 0)
+                {
+                    await writer.WriteAsync(buffer, 0, charsRead);
+                    position += charsRead;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
 
-        memoryStream.Position = 0;
+        memoryStream.Position = 0; // Reset the position for reading by FileStreamResult
 
         return new FileStreamResult(memoryStream, "text/csv")
         {
