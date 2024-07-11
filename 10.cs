@@ -1,3 +1,63 @@
+using Microsoft.AspNetCore.Mvc;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
+using System.Text;
+using System.Threading.Tasks;
+
+public class FileController : Controller
+{
+    private readonly string _connectionString = "Your Oracle Connection String Here";
+
+    [HttpGet("download-clob")]
+    public async Task<IActionResult> DownloadClob()
+    {
+        byte[] fileContent;
+
+        using (var connection = new OracleConnection(_connectionString))
+        {
+            await connection.OpenAsync();
+
+            using (var command = new OracleCommand("SELECT YourClobColumn FROM YourTable WHERE YourCondition", connection))
+            {
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        var oracleClob = reader.GetOracleClob(0);
+                        fileContent = ConvertClobToUtf8Bytes(oracleClob);
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+                }
+            }
+        }
+
+        return new FileContentResult(fileContent, "text/csv")
+        {
+            FileDownloadName = "yourfile.csv"
+        };
+    }
+
+    private byte[] ConvertClobToUtf8Bytes(OracleClob clob)
+    {
+        if (clob == null)
+            return null;
+
+        // Read the clob value
+        string clobContent;
+        using (var reader = new System.IO.StreamReader(clob, Encoding.UTF8))
+        {
+            clobContent = reader.ReadToEnd();
+        }
+
+        // Convert to UTF-8 byte array
+        return Encoding.UTF8.GetBytes(clobContent);
+    }
+}
+
+
 [HttpGet]
 public async Task<IActionResult> DownloadLargeCsvFile()
 {
